@@ -1,4 +1,3 @@
-// app/layout.tsx
 import './globals.css'
 import { Inter } from 'next/font/google'
 import { createClient } from '@/lib/supabase/server'
@@ -16,7 +15,8 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const supabase = createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  // We're not using session here, so we can remove it or comment it out
+  // const { data: { session } } = await supabase.auth.getSession()
   
   return (
     <html lang="en" className="h-full">

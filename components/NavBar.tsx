@@ -2,11 +2,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+//import { usePathname } from 'next/navigation'
 import AuthButton from './AuthButton'
+import Image from 'next/image'
 
 export default function NavBar() {
-  const pathname = usePathname()
+  //const pathname = usePathname()
   
   return (
     <nav className="bg-white shadow dark:bg-gray-800">
@@ -14,11 +15,13 @@ export default function NavBar() {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link href="/" className="flex-shrink-0 flex items-center">
-              <img 
-                className="h-8 w-8" 
-                src="/images/logo.svg" 
-                alt="Logo" 
-              />
+            <Image 
+  className="h-8 w-8" 
+  src="/images/logo.svg" 
+  alt="Logo"
+  width={32}
+  height={32}
+/>
               <span className="ml-2 text-xl font-bold">KuhnAI</span>
             </Link>
           </div>
