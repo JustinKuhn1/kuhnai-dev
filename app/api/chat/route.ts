@@ -1,7 +1,9 @@
-// app/api/chat/route.ts - Corrected version
+// app/api/chat/route.ts - Improved with streaming support
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+
+export const runtime = 'edge'; // Use Edge runtime for better streaming support
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
     
     // Parse request
-    const { message } = await req.json()
+    const { message, stream = false } = await req.json()
     
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -28,7 +30,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'LLM API URL not configured' }, { status: 500 })
     }
     
-    const response = await fetch(llmApiUrl, {
+    // Configure the request to Ollama
+    const ollama = await fetch(llmApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -37,29 +40,58 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: 'llama3', // Adjust based on your Ollama model
         prompt: message,
-        stream: false
+        stream: stream
       })
     })
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+    if (!ollama.ok) {
+      const errorData = await ollama.json().catch(() => ({ error: 'Unknown error' }))
       console.error('LLM API error:', errorData)
       return NextResponse.json({ error: 'Failed to generate response' }, { status: 500 })
     }
     
-    const result = await response.json()
-    
-    // Log conversation to database
-    await supabase
-      .from('conversations')
-      .insert({
-        user_id: session.user.id,
-        message: message,
-        response: result.response,
-        timestamp: new Date().toISOString()
-      })
-    
-    return NextResponse.json({ response: result.response })
+    // If streaming is requested and supported by the LLM API
+    if (stream) {
+      // Create a transform stream to process the response
+      const transformStream = new TransformStream({
+        async transform(chunk, controller) {
+          controller.enqueue(chunk);
+        },
+      });
+      
+      // Stream the response from Ollama to the client
+      const responseStream = ollama.body;
+      if (!responseStream) {
+        return NextResponse.json({ error: 'Failed to get response stream' }, { status: 500 });
+      }
+      
+      // Pipe the response stream through our transform stream
+      responseStream.pipeTo(transformStream.writable);
+      
+      // Return the readable part of the transform stream
+      return new Response(transformStream.readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    } else {
+      // For non-streaming responses
+      const result = await ollama.json()
+      
+      // Log conversation to database
+      await supabase
+        .from('conversations')
+        .insert({
+          user_id: session.user.id,
+          message: message,
+          response: result.response,
+          timestamp: new Date().toISOString()
+        })
+      
+      return NextResponse.json({ response: result.response })
+    }
   } catch (error) {
     console.error('Chat API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
