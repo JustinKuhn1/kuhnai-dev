@@ -34,21 +34,21 @@ export default function ChatMessage({ role, content }: ChatMessageProps) {
     <div 
       className={`p-4 rounded-lg ${
         role === 'user' 
-          ? 'bg-blue-100 ml-auto max-w-3xl' 
-          : 'bg-gray-100 mr-auto max-w-3xl'
+          ? 'bg-blue-500 text-white ml-auto max-w-3xl' 
+          : 'bg-gray-700 text-white mr-auto max-w-3xl'
       }`}
     >
       <div 
-        className="prose dark:prose-invert max-w-none"
+        className="prose prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: renderedContent }} 
       />
       
       {/* While content is empty, show loading indicator */}
       {content === '' && (
         <div className="flex space-x-2 justify-center items-center h-6">
-          <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-          <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-          <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="h-2 w-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="h-2 w-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="h-2 w-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
         </div>
       )}
     </div>

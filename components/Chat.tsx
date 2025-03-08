@@ -10,7 +10,6 @@ import ChatInput from './ChatInput'
 export default function Chat() {
   const [chatHistory, setChatHistory] = useState<Array<{id: string, role: string, content: string}>>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [streamingContent, setStreamingContent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
@@ -52,7 +51,7 @@ export default function Chat() {
   // Scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chatHistory, streamingContent])
+  }, [chatHistory])
   
   async function handleSendMessage(message: string) {
     if (!message.trim()) return
@@ -92,41 +91,48 @@ export default function Chat() {
         throw new Error(errorData.error || 'Failed to get response')
       }
       
-      // Handle streaming or non-streaming response
+      // Handle streaming response
       if (response.headers.get('content-type')?.includes('text/event-stream')) {
         const reader = response.body?.getReader()
         if (!reader) throw new Error('Failed to get stream reader')
         
         let accumulatedContent = ''
+        const decoder = new TextDecoder()
         
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
           
-          // Process the chunk
-          const chunk = new TextDecoder().decode(value)
-          const lines = chunk.split('\n').filter(line => line.trim().startsWith('data: '))
+          // Process the chunk - Ollama format
+          const chunk = decoder.decode(value, { stream: true })
+          console.log("Raw chunk:", chunk) // Debugging
           
-          for (const line of lines) {
-            const jsonString = line.replace('data: ', '').trim()
-            if (jsonString === '[DONE]') continue
+          try {
+            // Try to parse JSON response from Ollama
+            // Split by newlines to handle multiple JSON objects in one chunk
+            const jsonLines = chunk.split('\n').filter(line => line.trim())
             
-            try {
-              const { token } = JSON.parse(jsonString)
-              if (token) {
-                accumulatedContent += token
-                // Update the last message with the accumulated content
-                setChatHistory(prev => 
-                  prev.map(msg => 
-                    msg.id === `assistant-${tempId}` 
-                      ? { ...msg, content: accumulatedContent }
-                      : msg
+            for (const line of jsonLines) {
+              try {
+                const data = JSON.parse(line)
+                
+                // Ollama's streaming format has 'response' property
+                if (data.response) {
+                  accumulatedContent += data.response
+                  setChatHistory(prev => 
+                    prev.map(msg => 
+                      msg.id === `assistant-${tempId}` 
+                        ? { ...msg, content: accumulatedContent }
+                        : msg
+                    )
                   )
-                )
+                }
+              } catch (parseError) {
+                console.warn("Couldn't parse JSON line:", line)
               }
-            } catch (e) {
-              console.error('Error parsing stream chunk:', e)
             }
+          } catch (e) {
+            console.error('Error processing stream chunk:', e)
           }
         }
       } else {
@@ -148,7 +154,6 @@ export default function Chat() {
       setChatHistory(prev => prev.filter(msg => msg.id !== `assistant-${tempId}`))
     } finally {
       setIsLoading(false)
-      setStreamingContent('')
     }
   }
   

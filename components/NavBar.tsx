@@ -19,7 +19,7 @@ export default function NavBar() {
                 src="/images/logo.svg" 
                 alt="Logo" 
               />
-              <span className="ml-2 text-xl font-bold">AI Chat</span>
+              <span className="ml-2 text-xl font-bold">KuhnAI</span>
             </Link>
           </div>
           

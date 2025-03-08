@@ -1,4 +1,4 @@
-// app/api/chat/route.ts - Improved with streaming support
+// app/api/chat/route.ts - Fixed for Ollama streaming
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
@@ -52,24 +52,8 @@ export async function POST(req: NextRequest) {
     
     // If streaming is requested and supported by the LLM API
     if (stream) {
-      // Create a transform stream to process the response
-      const transformStream = new TransformStream({
-        async transform(chunk, controller) {
-          controller.enqueue(chunk);
-        },
-      });
-      
-      // Stream the response from Ollama to the client
-      const responseStream = ollama.body;
-      if (!responseStream) {
-        return NextResponse.json({ error: 'Failed to get response stream' }, { status: 500 });
-      }
-      
-      // Pipe the response stream through our transform stream
-      responseStream.pipeTo(transformStream.writable);
-      
-      // Return the readable part of the transform stream
-      return new Response(transformStream.readable, {
+      // Pass through the Ollama response directly
+      return new Response(ollama.body, {
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
