@@ -1,4 +1,4 @@
-// app/api/chat/route.ts - Fixed for Ollama streaming
+// app/api/chat/route.ts - Corrected for Ollama API
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
@@ -30,8 +30,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'LLM API URL not configured' }, { status: 500 })
     }
     
+    // Format the correct Ollama endpoint
+    const ollamaEndpoint = `${llmApiUrl}/api/generate`
+    console.log('Calling Ollama at:', ollamaEndpoint)
+    
     // Configure the request to Ollama
-    const ollama = await fetch(llmApiUrl, {
+    const ollama = await fetch(ollamaEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -45,9 +49,22 @@ export async function POST(req: NextRequest) {
     })
     
     if (!ollama.ok) {
-      const errorData = await ollama.json().catch(() => ({ error: 'Unknown error' }))
-      console.error('LLM API error:', errorData)
-      return NextResponse.json({ error: 'Failed to generate response' }, { status: 500 })
+      const errorText = await ollama.text();
+      console.error('LLM API error status:', ollama.status);
+      console.error('LLM API error response:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        return NextResponse.json({ 
+          error: 'Failed to generate response', 
+          details: errorData 
+        }, { status: 500 });
+      } catch {
+        return NextResponse.json({ 
+          error: 'Failed to generate response', 
+          details: errorText 
+        }, { status: 500 });
+      }
     }
     
     // If streaming is requested and supported by the LLM API
@@ -70,7 +87,7 @@ export async function POST(req: NextRequest) {
         .insert({
           user_id: session.user.id,
           message: message,
-          response: result.response,
+          response: result.response || "",
           timestamp: new Date().toISOString()
         })
       
@@ -78,6 +95,9 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     console.error('Chat API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 })
   }
 }
